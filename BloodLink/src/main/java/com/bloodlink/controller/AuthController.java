@@ -2,6 +2,12 @@ package com.bloodlink.controller;
 
 import com.bloodlink.dto.AuthDTO.*;
 import com.bloodlink.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -30,6 +36,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080", "http://localhost:4200"})
+@Tag(name = "Authentication", description = "Authentication and user registration endpoints")
 public class AuthController {
 
     private final AuthService authService;
@@ -41,6 +48,13 @@ public class AuthController {
      * @return AuthResponse with JWT token and user info
      */
     @PostMapping("/register-donor")
+    @Operation(summary = "Register new donor", description = "Creates a new donor account and returns JWT token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Donor registered successfully", 
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "409", description = "Email already exists")
+    })
     public ResponseEntity<?> registerDonor(@RequestBody RegisterRequest request) {
         log.info("Registering new donor: {}", request.getEmail());
         
@@ -62,6 +76,12 @@ public class AuthController {
      * @return AuthResponse with JWT token and user info
      */
     @PostMapping("/register-patient")
+    @Operation(summary = "Register new patient", description = "Creates a new patient account and returns JWT token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Patient registered successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "409", description = "Email already exists")
+    })
     public ResponseEntity<?> registerPatient(@RequestBody RegisterRequest request) {
         log.info("Registering new patient: {}", request.getEmail());
         
@@ -89,6 +109,12 @@ public class AuthController {
      * @return AuthResponse with JWT token
      */
     @PostMapping("/login")
+    @Operation(summary = "User login", description = "Authenticates user and returns JWT token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login successful"),
+        @ApiResponse(responseCode = "400", description = "Invalid credentials"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         log.info("Login attempt for: {}", request.getEmail());
         
