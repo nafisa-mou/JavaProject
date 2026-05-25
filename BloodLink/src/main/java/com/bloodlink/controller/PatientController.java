@@ -10,37 +10,33 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * PatientController - REST API for patient operations
  * 
  * Endpoints:
- * - GET /api/patients - Get all patients
- * - GET /api/patients/{id} - Get patient by ID
- * - GET /api/patients/{id}/profile - Get patient profile
- * - GET /api/patients/{id}/requests - Get patient's blood requests
- * - POST /api/patients/{id}/requests - Create blood request
- * - GET /api/patients/{id}/donors - Search available donors
- * - GET /api/patients/critical - Get critical patients
- * - PUT /api/patients/{id} - Update patient profile
- * - GET /api/patients/{id}/medical-records - Get medical records
- * - POST /api/patients/{id}/medical-records - Add medical record
+ * - GET    /api/patients                   - Get all patients
+ * - GET    /api/patients/{id}              - Get patient by ID
+ * - GET    /api/patients/{id}/profile      - Get patient profile
+ * - GET    /api/patients/{id}/requests     - Get patient's requests
+ * - GET    /api/patients/{id}/medical      - Get medical records
+ * - GET    /api/patients/{id}/donors       - Search available donors
+ * - GET    /api/patients/critical          - Get critical patients
+ * - PUT    /api/patients/{id}              - Update patient profile
+ * - POST   /api/patients/{id}/request      - Create blood request
+ * - POST   /api/patients/{id}/medical      - Add medical record
+ * - DELETE /api/patients/{id}/request/{rId} - Cancel blood request
  * 
- * Security:
- * - Public: GET all patients, search (limited)
- * - Protected: POST, PUT operations
- * 
- * OOP Principles:
- * - Encapsulation: Hides service implementation
- * - Single Responsibility: Only patient endpoints
+ * OOP Principle: Encapsulation - Complex logic delegated to PatientService
+ * REST Principle: Resource-oriented - Each endpoint represents a patient resource
+ * SOLID: Single Responsibility - Only handles HTTP concerns
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/patients")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:4200", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080", "http://localhost:4200"})
 public class PatientController {
 
     private final PatientService patientService;
@@ -49,312 +45,367 @@ public class PatientController {
      * Get all patients
      * 
      * @return List of all patients
-     * @status 200 OK
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PatientDTO>>> getAllPatients() {
-        log.info("GET /api/patients");
+    public ResponseEntity<?> getAllPatients() {
+        log.debug("Fetching all patients");
         
         try {
             List<PatientDTO> patients = patientService.getAllPatients();
-            return ResponseEntity.ok(ApiResponse.success(patients, "Patients retrieved successfully"));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", patients.size(),
+                "data", patients
+            ));
             
         } catch (Exception e) {
             log.error("Error fetching patients", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch patients"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Get patient by ID
      * 
-     * @param patientId Patient ID
-     * @return PatientDTO
-     * @status 200 OK
-     * @status 404 NOT_FOUND
+     * @param id Patient ID
+     * @return Patient details
      */
-    @GetMapping("/{patientId}")
-    public ResponseEntity<ApiResponse<PatientDTO>> getPatientById(@PathVariable Long patientId) {
-        log.info("GET /api/patients/{}", patientId);
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPatientById(@PathVariable Long id) {
+        log.debug("Fetching patient: {}", id);
         
         try {
-            PatientDTO patient = patientService.getPatientById(patientId);
-            return ResponseEntity.ok(ApiResponse.success(patient, "Patient retrieved successfully"));
+            PatientDTO patient = patientService.getPatientById(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", patient
+            ));
             
         } catch (Exception e) {
-            log.error("Patient not found: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Patient not found"));
+            log.error("Error fetching patient", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Get patient profile with detailed information
+     * Get patient profile with all details
      * 
-     * @param patientId Patient ID
-     * @return Profile map
-     * @status 200 OK
-     * @status 404 NOT_FOUND
+     * @param id Patient ID
+     * @return Complete patient profile
      */
-    @GetMapping("/{patientId}/profile")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getPatientProfile(@PathVariable Long patientId) {
-        log.info("GET /api/patients/{}/profile", patientId);
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<?> getPatientProfile(@PathVariable Long id) {
+        log.debug("Fetching patient profile: {}", id);
         
         try {
-            Map<String, Object> profile = patientService.getPatientProfile(patientId);
-            return ResponseEntity.ok(ApiResponse.success(profile, "Patient profile retrieved"));
+            Map<String, Object> profile = patientService.getPatientProfile(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", profile
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching patient profile: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Patient not found"));
+            log.error("Error fetching patient profile", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Get patient's blood requests
      * 
-     * @param patientId Patient ID
-     * @return List of blood requests
-     * @status 200 OK
-     * @status 404 NOT_FOUND
+     * @param id Patient ID
+     * @return List of patient's requests
      */
-    @GetMapping("/{patientId}/requests")
-    @PreAuthorize("hasRole('PATIENT') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<List<BloodRequest>>> getPatientRequests(@PathVariable Long patientId) {
-        log.info("GET /api/patients/{}/requests", patientId);
+    @GetMapping("/{id}/requests")
+    public ResponseEntity<?> getPatientRequests(@PathVariable Long id) {
+        log.debug("Fetching requests for patient: {}", id);
         
         try {
-            List<BloodRequest> requests = patientService.getPatientRequests(patientId);
-            return ResponseEntity.ok(ApiResponse.success(requests, "Requests retrieved: " + requests.size()));
+            List<BloodRequest> requests = patientService.getPatientRequests(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", requests.size(),
+                "data", requests
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching requests: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Patient not found"));
+            log.error("Error fetching patient requests", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Create blood request
+     * Get patient's pending blood requests
      * 
-     * @param patientId Patient ID
-     * @param request Blood request details
-     * @return BloodRequest
-     * @status 201 CREATED
-     * @status 401 UNAUTHORIZED
-     * @status 400 BAD_REQUEST
+     * @param id Patient ID
+     * @return List of pending requests
      */
-    @PostMapping("/{patientId}/requests")
-    @PreAuthorize("hasRole('PATIENT') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<BloodRequest>> createBloodRequest(
-            @PathVariable Long patientId,
-            @RequestBody Map<String, Object> request) {
-        log.info("POST /api/patients/{}/requests", patientId);
+    @GetMapping("/{id}/requests/pending")
+    public ResponseEntity<?> getPendingRequests(@PathVariable Long id) {
+        log.debug("Fetching pending requests for patient: {}", id);
         
         try {
-            String bloodGroup = (String) request.get("bloodGroup");
-            String urgency = (String) request.getOrDefault("urgencyLevel", "URGENT");
-            
-            BloodRequest.BloodRequest newRequest = patientService.createBloodRequest(
-                patientId, 
-                bloodGroup, 
-                Patient.EmergencyLevel.valueOf(urgency)
-            );
-            
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(newRequest, "Blood request created successfully"));
+            List<BloodRequest> requests = patientService.getPendingRequests(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", requests.size(),
+                "data", requests
+            ));
             
         } catch (Exception e) {
-            log.error("Error creating blood request: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to create request: " + e.getMessage()));
+            log.error("Error fetching pending requests", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get patient's medical records
+     * 
+     * @param id Patient ID
+     * @return List of medical records
+     */
+    @GetMapping("/{id}/medical")
+    public ResponseEntity<?> getMedicalRecords(@PathVariable Long id) {
+        log.debug("Fetching medical records for patient: {}", id);
+        
+        try {
+            List<MedicalRecord> records = patientService.getMedicalRecords(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", records.size(),
+                "data", records
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error fetching medical records", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Search available donors for patient
      * 
-     * @param patientId Patient ID
-     * @param maxDistance Maximum distance in km
-     * @return List of available donors
-     * @status 200 OK
-     * @status 404 NOT_FOUND
-     */
-    @GetMapping("/{patientId}/donors")
-    public ResponseEntity<ApiResponse<List<?>>> searchAvailableDonors(
-            @PathVariable Long patientId,
-            @RequestParam(defaultValue = "50") Double maxDistance) {
-        log.info("GET /api/patients/{}/donors?maxDistance={}", patientId, maxDistance);
-        
-        try {
-            var donors = patientService.searchAvailableDonors(patientId, maxDistance);
-            return ResponseEntity.ok(ApiResponse.success(donors, "Available donors found: " + donors.size()));
-            
-        } catch (Exception e) {
-            log.error("Error searching donors: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to search donors"));
-        }
-    }
-
-    /**
-     * Get critical patients (CRITICAL or LIFE_THREATENING)
-     * Requires admin role
+     * Query Parameters:
+     * - maxDistance: Max distance in km (optional, default 50)
      * 
-     * @return List of critical patients
-     * @status 200 OK
-     * @status 403 FORBIDDEN
+     * @param id Patient ID
+     * @param maxDistance Maximum distance in kilometers
+     * @return List of available donors
      */
-    @GetMapping("/critical")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<List<PatientDTO>>> getCriticalPatients() {
-        log.info("GET /api/patients/critical");
+    @GetMapping("/{id}/donors")
+    public ResponseEntity<?> searchAvailableDonors(@PathVariable Long id,
+                                                  @RequestParam(defaultValue = "50") Double maxDistance) {
+        log.debug("Searching donors for patient: {}", id);
         
         try {
-            List<PatientDTO> patients = patientService.getCriticalPatients();
-            return ResponseEntity.ok(ApiResponse.success(patients, "Critical patients retrieved: " + patients.size()));
+            var donors = patientService.searchAvailableDonors(id, maxDistance);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", donors.size(),
+                "maxDistance", maxDistance,
+                "data", donors
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching critical patients", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch critical patients"));
+            log.error("Error searching donors", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Update patient profile
      * 
-     * @param patientId Patient ID
-     * @param updates Profile updates
-     * @return ApiResponse
-     * @status 200 OK
-     * @status 401 UNAUTHORIZED
-     * @status 404 NOT_FOUND
+     * @param id Patient ID
+     * @param updates Map of fields to update
+     * @return Updated patient info
      */
-    @PutMapping("/{patientId}")
-    @PreAuthorize("hasRole('PATIENT') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> updatePatientProfile(
-            @PathVariable Long patientId,
-            @RequestBody Map<String, Object> updates) {
-        log.info("PUT /api/patients/{}", patientId);
+    @PutMapping("/{id}")
+    @PreAuthorize("@patientService.getPatientById(#id).userId == authentication.principal.userId")
+    public ResponseEntity<?> updatePatientProfile(@PathVariable Long id,
+                                                 @RequestBody Map<String, Object> updates) {
+        log.info("Updating patient profile: {}", id);
         
         try {
-            patientService.updatePatientProfile(patientId, updates);
-            return ResponseEntity.ok(ApiResponse.success(null, "Patient profile updated successfully"));
+            patientService.updatePatientProfile(id, updates);
+            PatientDTO updated = patientService.getPatientById(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Profile updated successfully",
+                "data", updated
+            ));
             
         } catch (Exception e) {
-            log.error("Error updating patient profile: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to update profile: " + e.getMessage()));
+            log.error("Error updating patient profile", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Get patient medical records
+     * Create blood request
      * 
-     * @param patientId Patient ID
-     * @return List of medical records
-     * @status 200 OK
-     * @status 404 NOT_FOUND
+     * Request Body:
+     * {
+     *   "bloodGroup": "O+",
+     *   "emergencyLevel": "CRITICAL"
+     * }
+     * 
+     * @param id Patient ID
+     * @param request Blood request details
+     * @return Created blood request
      */
-    @GetMapping("/{patientId}/medical-records")
-    @PreAuthorize("hasRole('PATIENT') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<List<MedicalRecord>>> getMedicalRecords(@PathVariable Long patientId) {
-        log.info("GET /api/patients/{}/medical-records", patientId);
+    @PostMapping("/{id}/request")
+    @PreAuthorize("@patientService.canPatientMakeRequest(#id)")
+    public ResponseEntity<?> createBloodRequest(@PathVariable Long id,
+                                               @RequestBody BloodRequestDto request) {
+        log.info("Creating blood request for patient: {}", id);
         
         try {
-            List<MedicalRecord> records = patientService.getMedicalRecords(patientId);
-            return ResponseEntity.ok(ApiResponse.success(records, "Medical records retrieved"));
+            BloodRequest bloodRequest = patientService.createBloodRequest(
+                id, 
+                request.getBloodGroup(), 
+                Patient.EmergencyLevel.valueOf(request.getEmergencyLevel())
+            );
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Blood request created successfully",
+                "data", bloodRequest
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching medical records: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Patient not found"));
+            log.error("Error creating blood request", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Cancel blood request
+     * 
+     * @param id Patient ID
+     * @param requestId Blood request ID
+     * @return Success response
+     */
+    @DeleteMapping("/{id}/request/{requestId}")
+    @PreAuthorize("@patientService.getPatientById(#id).userId == authentication.principal.userId")
+    public ResponseEntity<?> cancelRequest(@PathVariable Long id,
+                                          @PathVariable Long requestId) {
+        log.info("Cancelling blood request {} for patient: {}", requestId, id);
+        
+        try {
+            patientService.cancelRequest(id, requestId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Request cancelled successfully",
+                "requestId", requestId
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error cancelling request", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Add medical record for patient
      * 
-     * @param patientId Patient ID
-     * @param medicalRecord Medical record details
-     * @return MedicalRecord
-     * @status 201 CREATED
-     * @status 401 UNAUTHORIZED
-     * @status 404 NOT_FOUND
+     * @param id Patient ID
+     * @param record Medical record to add
+     * @return Created medical record
      */
-    @PostMapping("/{patientId}/medical-records")
-    @PreAuthorize("hasRole('PATIENT') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<MedicalRecord>> addMedicalRecord(
-            @PathVariable Long patientId,
-            @RequestBody MedicalRecord medicalRecord) {
-        log.info("POST /api/patients/{}/medical-records", patientId);
+    @PostMapping("/{id}/medical")
+    @PreAuthorize("@patientService.getPatientById(#id).userId == authentication.principal.userId || hasRole('ADMIN')")
+    public ResponseEntity<?> addMedicalRecord(@PathVariable Long id,
+                                             @RequestBody MedicalRecord record) {
+        log.info("Adding medical record for patient: {}", id);
         
         try {
-            MedicalRecord saved = patientService.addMedicalRecord(patientId, medicalRecord);
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(saved, "Medical record added successfully"));
+            MedicalRecord savedRecord = patientService.addMedicalRecord(id, record);
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Medical record added successfully",
+                "data", savedRecord
+            ));
             
         } catch (Exception e) {
-            log.error("Error adding medical record: {}", patientId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to add medical record"));
+            log.error("Error adding medical record", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Get patients by emergency level statistics
-     * Requires admin role
+     * Get critical patients
+     * 
+     * @return List of critical patients
+     */
+    @GetMapping("/critical")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getCriticalPatients() {
+        log.debug("Fetching critical patients");
+        
+        try {
+            List<PatientDTO> patients = patientService.getCriticalPatients();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", patients.size(),
+                "data", patients
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error fetching critical patients", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get patients by emergency level
      * 
      * @return Map of emergency levels to patient counts
-     * @status 200 OK
      */
-    @GetMapping("/stats/emergency-levels")
+    @GetMapping("/statistics/emergency")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, Integer>>> getEmergencyLevelStats() {
-        log.info("GET /api/patients/stats/emergency-levels");
+    public ResponseEntity<?> getPatientsByEmergencyLevel() {
+        log.debug("Getting patients by emergency level");
         
         try {
             Map<String, Integer> stats = patientService.getPatientsByEmergencyLevel();
-            return ResponseEntity.ok(ApiResponse.success(stats, "Emergency level statistics retrieved"));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", stats
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching stats", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch statistics"));
+            log.error("Error fetching statistics", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     // ==================== Helper Classes ====================
 
+    /**
+     * Blood request DTO
+     */
     @lombok.Data
-    @lombok.AllArgsConstructor
-    public static class ApiResponse<T> {
-        private boolean success;
-        private T data;
-        private String message;
+    public static class BloodRequestDto {
+        private String bloodGroup;
+        private String emergencyLevel;
 
-        public static <T> ApiResponse<T> success(T data, String message) {
-            return new ApiResponse<>(true, data, message);
-        }
-
-        public static <T> ApiResponse<T> error(String message) {
-            return new ApiResponse<>(false, null, message);
-        }
+        public String getBloodGroup() { return bloodGroup; }
+        public String getEmergencyLevel() { return emergencyLevel; }
     }
 }

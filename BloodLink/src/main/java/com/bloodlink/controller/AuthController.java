@@ -8,35 +8,28 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
-
 /**
- * AuthController - REST API for authentication and user registration
+ * AuthController - REST API for authentication and authorization
  * 
  * Endpoints:
- * - POST /api/auth/register/donor - Register new donor
- * - POST /api/auth/register/patient - Register new patient
- * - POST /api/auth/login - User login
- * - POST /api/auth/refresh-token - Refresh JWT token
- * - POST /api/auth/logout - Logout user
- * - POST /api/auth/change-password - Change password
- * - POST /api/auth/forgot-password - Request password reset
- * - POST /api/auth/reset-password - Reset password with token
+ * - POST /api/auth/register-donor     - Register new donor
+ * - POST /api/auth/register-patient   - Register new patient
+ * - POST /api/auth/login              - User login
+ * - POST /api/auth/refresh-token      - Refresh JWT token
+ * - POST /api/auth/logout             - Logout user
+ * - POST /api/auth/change-password    - Change password
+ * - POST /api/auth/forgot-password    - Request password reset
+ * - POST /api/auth/reset-password     - Reset password with token
  * 
- * Security:
- * - Public endpoints: register, login, refresh-token, forgot-password, reset-password
- * - Protected endpoints: logout, change-password
- * 
- * OOP Principles:
- * - Encapsulation: Hides service implementation
- * - Abstraction: Provides API interface
- * - Single Responsibility: Only authentication endpoints
+ * OOP Principle: Encapsulation - HTTP request/response handling is encapsulated
+ * REST Principle: Stateless - Each request contains all necessary information
+ * SOLID: Single Responsibility - Only handles authentication endpoints
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:4200", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080", "http://localhost:4200"})
 public class AuthController {
 
     private final AuthService authService;
@@ -45,27 +38,20 @@ public class AuthController {
      * Register new donor
      * 
      * @param request RegisterRequest with donor details
-     * @return AuthResponse with JWT token
-     * @status 201 CREATED - User registered successfully
-     * @status 400 BAD_REQUEST - Validation error or duplicate email/phone
-     * @status 409 CONFLICT - Email or phone already registered
+     * @return AuthResponse with JWT token and user info
      */
-    @PostMapping("/register/donor")
-    public ResponseEntity<ApiResponse<AuthResponse>> registerDonor(@Valid @RequestBody RegisterRequest request) {
-        log.info("POST /api/auth/register/donor - Email: {}", request.getEmail());
+    @PostMapping("/register-donor")
+    public ResponseEntity<?> registerDonor(@RequestBody RegisterRequest request) {
+        log.info("Registering new donor: {}", request.getEmail());
         
         try {
             AuthResponse response = authService.registerDonor(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "Donor registered successfully"));
-                
         } catch (Exception e) {
-            log.error("Error registering donor", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Registration failed: " + e.getMessage()));
+            log.error("Donor registration failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Registration failed", e.getMessage()));
         }
     }
 
@@ -73,260 +59,227 @@ public class AuthController {
      * Register new patient
      * 
      * @param request RegisterRequest with patient details
-     * @return AuthResponse with JWT token
-     * @status 201 CREATED - User registered successfully
-     * @status 400 BAD_REQUEST - Validation error
-     * @status 409 CONFLICT - Email or phone already registered
+     * @return AuthResponse with JWT token and user info
      */
-    @PostMapping("/register/patient")
-    public ResponseEntity<ApiResponse<AuthResponse>> registerPatient(@Valid @RequestBody RegisterRequest request) {
-        log.info("POST /api/auth/register/patient - Email: {}", request.getEmail());
+    @PostMapping("/register-patient")
+    public ResponseEntity<?> registerPatient(@RequestBody RegisterRequest request) {
+        log.info("Registering new patient: {}", request.getEmail());
         
         try {
             AuthResponse response = authService.registerPatient(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "Patient registered successfully"));
-                
         } catch (Exception e) {
-            log.error("Error registering patient", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Registration failed: " + e.getMessage()));
+            log.error("Patient registration failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Registration failed", e.getMessage()));
         }
     }
 
     /**
      * User login
      * 
+     * Request Body:
+     * {
+     *   "email": "user@example.com",
+     *   "password": "password123"
+     * }
+     * 
      * @param request LoginRequest with email and password
      * @return AuthResponse with JWT token
-     * @status 200 OK - Login successful
-     * @status 401 UNAUTHORIZED - Invalid credentials
-     * @status 400 BAD_REQUEST - Validation error
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        log.info("POST /api/auth/login - Email: {}", request.getEmail());
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        log.info("Login attempt for: {}", request.getEmail());
         
         try {
             AuthResponse response = authService.login(request);
-            
-            return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
+            return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.warn("Login failed for email: {}", request.getEmail());
-            return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Invalid email or password"));
+            log.error("Login failed", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("Login failed", e.getMessage()));
         }
     }
 
     /**
      * Refresh JWT token
      * 
+     * Request Body:
+     * {
+     *   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     * }
+     * 
      * @param request TokenRefreshRequest with refresh token
      * @return AuthResponse with new JWT token
-     * @status 200 OK - Token refreshed
-     * @status 401 UNAUTHORIZED - Invalid refresh token
      */
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
-        log.info("POST /api/auth/refresh-token");
+    public ResponseEntity<?> refreshToken(@RequestBody TokenRefreshRequest request) {
+        log.debug("Token refresh request");
         
         try {
             AuthResponse response = authService.refreshToken(request);
-            
-            return ResponseEntity.ok(ApiResponse.success(response, "Token refreshed successfully"));
+            return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.warn("Token refresh failed", e);
-            return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Invalid refresh token"));
+            log.error("Token refresh failed", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("Token refresh failed", e.getMessage()));
         }
     }
 
     /**
      * Logout user
-     * Note: With JWT, logout is mainly client-side (remove token)
      * 
-     * @status 200 OK - Logout successful
+     * @return Success response
      */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout() {
-        log.info("POST /api/auth/logout");
+    public ResponseEntity<?> logout() {
+        log.debug("Logout request");
         
         try {
-            // Note: JWT is stateless, so logout is client-side token removal
-            // In production, could implement token blacklist
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Logout successful"));
+            // With JWT, logout is mainly client-side (remove token)
+            // Server can maintain token blacklist if needed
+            return ResponseEntity.ok(new SuccessResponse("Logged out successfully"));
             
         } catch (Exception e) {
-            log.error("Error during logout", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Logout failed"));
+            log.error("Logout failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Logout failed", e.getMessage()));
         }
     }
 
     /**
-     * Change user password
-     * Requires authentication (Bearer token)
+     * Change password
      * 
-     * @param userId User ID (from JWT)
+     * Request Body:
+     * {
+     *   "currentPassword": "oldPassword123",
+     *   "newPassword": "newPassword123",
+     *   "confirmPassword": "newPassword123"
+     * }
+     * 
+     * @param userId User ID
      * @param request ChangePasswordRequest
-     * @return ApiResponse
-     * @status 200 OK - Password changed
-     * @status 401 UNAUTHORIZED - Not authenticated or invalid current password
-     * @status 400 BAD_REQUEST - Validation error
+     * @return Success response
      */
-    @PostMapping("/change-password")
-    public ResponseEntity<ApiResponse<String>> changePassword(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @Valid @RequestBody ChangePasswordRequest request) {
-        log.info("POST /api/auth/change-password");
+    @PostMapping("/change-password/{userId}")
+    public ResponseEntity<?> changePassword(@PathVariable Long userId, 
+                                           @RequestBody ChangePasswordRequest request) {
+        log.info("Password change request for user: {}", userId);
         
         try {
-            // In production, extract userId from JWT token
-            // For now, this is a placeholder - would be: Long userId = extractUserIdFromToken(authHeader);
-            
-            // authService.changePassword(userId, request);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Password changed successfully"));
+            authService.changePassword(userId, request);
+            return ResponseEntity.ok(new SuccessResponse("Password changed successfully"));
             
         } catch (Exception e) {
-            log.error("Error changing password", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to change password: " + e.getMessage()));
+            log.error("Password change failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Password change failed", e.getMessage()));
         }
     }
 
     /**
-     * Request password reset (forgot password)
+     * Request password reset
+     * 
+     * Request Body:
+     * {
+     *   "email": "user@example.com"
+     * }
      * 
      * @param request ForgotPasswordRequest with email
-     * @return ApiResponse
-     * @status 200 OK - Reset email sent (or would be sent in production)
-     * @status 400 BAD_REQUEST - Invalid email
+     * @return Success response
      */
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        log.info("POST /api/auth/forgot-password - Email: {}", request.getEmail());
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        log.info("Password reset requested for: {}", request.getEmail());
         
         try {
             authService.requestPasswordReset(request);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, 
-                "If this email exists, password reset link has been sent"));
+            // Don't reveal if email exists (security best practice)
+            return ResponseEntity.ok(new SuccessResponse("Password reset email sent if account exists"));
             
         } catch (Exception e) {
-            log.error("Error requesting password reset", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to process request"));
+            log.error("Password reset request failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Failed to process request", e.getMessage()));
         }
     }
 
     /**
      * Reset password with token
      * 
+     * Request Body:
+     * {
+     *   "token": "reset-token-here",
+     *   "newPassword": "newPassword123",
+     *   "confirmPassword": "newPassword123"
+     * }
+     * 
      * @param request ResetPasswordRequest with token and new password
-     * @return ApiResponse
-     * @status 200 OK - Password reset successfully
-     * @status 400 BAD_REQUEST - Invalid token or validation error
+     * @return Success response
      */
     @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        log.info("POST /api/auth/reset-password");
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        log.debug("Password reset with token");
         
         try {
             authService.resetPassword(request);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Password reset successfully"));
+            return ResponseEntity.ok(new SuccessResponse("Password reset successfully"));
             
         } catch (Exception e) {
-            log.error("Error resetting password", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to reset password"));
+            log.error("Password reset failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("Password reset failed", e.getMessage()));
         }
     }
 
     /**
-     * Check if email is available
+     * Health check endpoint
      * 
-     * @param email Email to check
-     * @return ApiResponse with availability status
-     * @status 200 OK
+     * @return Health status
      */
-    @GetMapping("/check-email")
-    public ResponseEntity<ApiResponse<Boolean>> checkEmailAvailability(@RequestParam String email) {
-        log.info("GET /api/auth/check-email - Email: {}", email);
-        
-        try {
-            // Would check if email exists in database
-            boolean available = true; // Placeholder
-            
-            return ResponseEntity.ok(ApiResponse.success(available, "Email availability checked"));
-            
-        } catch (Exception e) {
-            log.error("Error checking email availability", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to check email"));
-        }
-    }
-
-    /**
-     * Validate JWT token
-     * 
-     * @param authHeader Authorization header with Bearer token
-     * @return ApiResponse with token validity
-     * @status 200 OK
-     */
-    @GetMapping("/validate-token")
-    public ResponseEntity<ApiResponse<Boolean>> validateToken(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        log.debug("GET /api/auth/validate-token");
-        
-        try {
-            // Would validate token from JWT
-            boolean valid = authHeader != null && authHeader.startsWith("Bearer ");
-            
-            return ResponseEntity.ok(ApiResponse.success(valid, "Token validation completed"));
-            
-        } catch (Exception e) {
-            log.error("Error validating token", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Token validation failed"));
-        }
+    @GetMapping("/health")
+    public ResponseEntity<?> healthCheck() {
+        return ResponseEntity.ok(Map.of("status", "AUTH_SERVICE_RUNNING"));
     }
 
     // ==================== Helper Classes ====================
 
     /**
-     * Generic API Response wrapper
-     * 
-     * @param <T> Response data type
+     * Error response DTO
      */
-    @lombok.Data
-    @lombok.AllArgsConstructor
-    public static class ApiResponse<T> {
-        private boolean success;
-        private T data;
+    public static class ErrorResponse {
+        private String error;
         private String message;
+        private long timestamp = System.currentTimeMillis();
 
-        public static <T> ApiResponse<T> success(T data, String message) {
-            return new ApiResponse<>(true, data, message);
+        public ErrorResponse(String error, String message) {
+            this.error = error;
+            this.message = message;
         }
 
-        public static <T> ApiResponse<T> error(String message) {
-            return new ApiResponse<>(false, null, message);
+        public String getError() { return error; }
+        public String getMessage() { return message; }
+        public long getTimestamp() { return timestamp; }
+    }
+
+    /**
+     * Success response DTO
+     */
+    public static class SuccessResponse {
+        private String message;
+        private long timestamp = System.currentTimeMillis();
+
+        public SuccessResponse(String message) {
+            this.message = message;
         }
+
+        public String getMessage() { return message; }
+        public long getTimestamp() { return timestamp; }
     }
 }
+
+// Need to import Map
+import java.util.Map;

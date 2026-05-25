@@ -1,9 +1,7 @@
 package com.bloodlink.controller;
 
-import com.bloodlink.entity.Chat;
-import com.bloodlink.entity.Message;
-import com.bloodlink.service.ChatService;
-import com.bloodlink.service.MessageService;
+import com.bloodlink.entity.*;
+import com.bloodlink.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -11,391 +9,360 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * ChatController - REST API for chat operations
  * 
  * Endpoints:
- * - POST /api/chats/start - Start new chat
- * - GET /api/chats - Get user's chats
- * - GET /api/chats/{id} - Get chat details
- * - GET /api/chats/{id}/messages - Get chat messages
- * - POST /api/chats/{id}/messages - Send message
- * - PUT /api/chats/{id}/archive - Archive chat
- * - PUT /api/chats/{id}/block - Block chat
- * - DELETE /api/chats/{id} - Delete chat
- * - GET /api/chats/stats - Get chat statistics
- * - PUT /api/chats/{id}/messages/{msgId}/seen - Mark message seen
+ * - GET    /api/chats                      - Get user's chats
+ * - GET    /api/chats/{id}                 - Get chat details
+ * - GET    /api/chats/{id}/messages        - Get chat messages
+ * - GET    /api/chats/between              - Get chat between two users
+ * - GET    /api/chats/statistics           - Get chat statistics
+ * - POST   /api/chats/start                - Start new chat
+ * - PUT    /api/chats/{id}/archive         - Archive chat
+ * - PUT    /api/chats/{id}/block           - Block chat
+ * - DELETE /api/chats/{id}                 - Delete chat
  * 
- * Security:
- * - Protected: All endpoints require authentication
+ * WebSocket Endpoints:
+ * - WS     /ws/chat/{chatId}               - Real-time chat
+ * 
+ * OOP Principle: Encapsulation - Chat logic delegated to service
+ * REST Principle: Resource-oriented - Each endpoint represents a chat resource
+ * SOLID: Single Responsibility - Only handles HTTP concerns
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/chats")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:4200", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080", "http://localhost:4200"})
 public class ChatController {
 
     private final ChatService chatService;
     private final MessageService messageService;
 
     /**
-     * Start new chat between two users
+     * Get all active chats for authenticated user
      * 
-     * @param otherUserId ID of other user
-     * @return Chat entity
-     * @status 201 CREATED
-     * @status 400 BAD_REQUEST
-     */
-    @PostMapping("/start")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Chat>> startChat(@RequestParam Long otherUserId) {
-        log.info("POST /api/chats/start?otherUserId={}", otherUserId);
-        
-        try {
-            // Would extract userId from JWT token in production
-            Long userId = 1L; // Placeholder
-            
-            Chat chat = chatService.startChat(userId, otherUserId);
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(chat, "Chat started successfully"));
-            
-        } catch (Exception e) {
-            log.error("Error starting chat", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to start chat: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Get all chats for user
-     * 
-     * @return List of chats
-     * @status 200 OK
+     * @param userId Authenticated user's ID (from JWT token)
+     * @return List of active chats
      */
     @GetMapping
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<List<Chat>>> getUserChats() {
-        log.info("GET /api/chats");
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getUserChats(@RequestParam Long userId) {
+        log.debug("Fetching chats for user: {}", userId);
         
         try {
-            // Would extract userId from JWT token in production
-            Long userId = 1L; // Placeholder
-            
             List<Chat> chats = chatService.getActiveChatsForUser(userId);
-            return ResponseEntity.ok(ApiResponse.success(chats, "Chats retrieved: " + chats.size()));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", chats.size(),
+                "data", chats
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching chats", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch chats"));
+            log.error("Error fetching user chats", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Get chat by ID
      * 
-     * @param chatId Chat ID
+     * @param id Chat ID
      * @return Chat details
-     * @status 200 OK
-     * @status 404 NOT_FOUND
      */
-    @GetMapping("/{chatId}")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getChatDetails(@PathVariable Long chatId) {
-        log.info("GET /api/chats/{}", chatId);
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getChatById(@PathVariable Long id) {
+        log.debug("Fetching chat: {}", id);
         
         try {
-            Chat chat = chatService.getChatById(chatId);
-            Map<String, Object> summary = chatService.getChatSummary(chatId);
+            Chat chat = chatService.getChatById(id);
+            Map<String, Object> summary = chatService.getChatSummary(id);
             
-            return ResponseEntity.ok(ApiResponse.success(summary, "Chat details retrieved"));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", Map.of(
+                    "chat", chat,
+                    "summary", summary
+                )
+            ));
             
         } catch (Exception e) {
-            log.error("Chat not found: {}", chatId, e);
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Chat not found"));
+            log.error("Error fetching chat", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Get messages in chat
+     * Get messages in a chat
      * 
-     * @param chatId Chat ID
+     * Query Parameters:
+     * - page: Page number (optional, for pagination)
+     * - size: Page size (optional, for pagination)
+     * 
+     * @param id Chat ID
      * @param page Page number (0-indexed)
-     * @param pageSize Messages per page
+     * @param size Page size
      * @return List of messages
-     * @status 200 OK
-     * @status 404 NOT_FOUND
      */
-    @GetMapping("/{chatId}/messages")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<List<Message>>> getChatMessages(
-            @PathVariable Long chatId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int pageSize) {
-        log.info("GET /api/chats/{}/messages?page={}&pageSize={}", chatId, page, pageSize);
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<?> getChatMessages(@PathVariable Long id,
+                                            @RequestParam(defaultValue = "0") int page,
+                                            @RequestParam(defaultValue = "50") int size) {
+        log.debug("Fetching messages for chat: {} (page: {}, size: {})", id, page, size);
         
         try {
-            List<Message> messages = messageService.getChatMessagesPaginated(chatId, page, pageSize);
+            List<Message> messages = messageService.getChatMessagesPaginated(id, page, size);
+            long totalMessages = messageService.getMessageCount(id);
             
-            // Mark all messages as seen
-            messageService.markAllMessagesAsSeen(chatId, 1L); // Would use actual userId
-            
-            return ResponseEntity.ok(ApiResponse.success(messages, "Messages retrieved: " + messages.size()));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "page", page,
+                "pageSize", size,
+                "total", totalMessages,
+                "count", messages.size(),
+                "data", messages
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching messages: {}", chatId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch messages"));
+            log.error("Error fetching chat messages", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
-     * Send message in chat
+     * Get chat between two specific users
      * 
-     * @param chatId Chat ID
-     * @param request Message content
-     * @return Sent Message
-     * @status 201 CREATED
-     * @status 400 BAD_REQUEST
+     * Query Parameters:
+     * - user1: First user ID
+     * - user2: Second user ID
+     * 
+     * @param user1 First user ID
+     * @param user2 Second user ID
+     * @return Chat if exists
      */
-    @PostMapping("/{chatId}/messages")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Message>> sendMessage(
-            @PathVariable Long chatId,
-            @RequestBody Map<String, String> request) {
-        log.info("POST /api/chats/{}/messages", chatId);
+    @GetMapping("/between")
+    public ResponseEntity<?> getChatBetweenUsers(@RequestParam Long user1,
+                                                @RequestParam Long user2) {
+        log.debug("Getting chat between users: {} and {}", user1, user2);
         
         try {
-            String content = request.get("content");
-            // Would extract userId from JWT token in production
-            Long senderId = 1L; // Placeholder
+            Optional<Chat> chat = chatService.getChatBetweenUsers(user1, user2);
             
-            Message message = messageService.sendMessage(chatId, senderId, content);
-            
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(message, "Message sent successfully"));
-            
-        } catch (Exception e) {
-            log.error("Error sending message", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to send message: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Archive chat
-     * 
-     * @param chatId Chat ID
-     * @return ApiResponse
-     * @status 200 OK
-     */
-    @PutMapping("/{chatId}/archive")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<String>> archiveChat(@PathVariable Long chatId) {
-        log.info("PUT /api/chats/{}/archive", chatId);
-        
-        try {
-            Long userId = 1L; // Placeholder - would extract from JWT
-            chatService.archiveChat(chatId, userId);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Chat archived successfully"));
+            if (chat.isPresent()) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "exists", true,
+                    "data", chat.get()
+                ));
+            } else {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "exists", false,
+                    "message", "No chat exists between these users"
+                ));
+            }
             
         } catch (Exception e) {
-            log.error("Error archiving chat: {}", chatId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to archive chat"));
-        }
-    }
-
-    /**
-     * Block chat
-     * 
-     * @param chatId Chat ID
-     * @return ApiResponse
-     * @status 200 OK
-     */
-    @PutMapping("/{chatId}/block")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<String>> blockChat(@PathVariable Long chatId) {
-        log.info("PUT /api/chats/{}/block", chatId);
-        
-        try {
-            Long userId = 1L; // Placeholder - would extract from JWT
-            chatService.blockChat(chatId, userId);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Chat blocked successfully"));
-            
-        } catch (Exception e) {
-            log.error("Error blocking chat: {}", chatId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to block chat"));
-        }
-    }
-
-    /**
-     * Delete chat
-     * 
-     * @param chatId Chat ID
-     * @return ApiResponse
-     * @status 200 OK
-     */
-    @DeleteMapping("/{chatId}")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<String>> deleteChat(@PathVariable Long chatId) {
-        log.info("DELETE /api/chats/{}", chatId);
-        
-        try {
-            Long userId = 1L; // Placeholder - would extract from JWT
-            chatService.deleteChat(chatId, userId);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Chat deleted successfully"));
-            
-        } catch (Exception e) {
-            log.error("Error deleting chat: {}", chatId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to delete chat"));
-        }
-    }
-
-    /**
-     * Mark message as seen
-     * 
-     * @param chatId Chat ID
-     * @param messageId Message ID
-     * @return ApiResponse
-     * @status 200 OK
-     */
-    @PutMapping("/{chatId}/messages/{messageId}/seen")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<String>> markMessageAsSeen(
-            @PathVariable Long chatId,
-            @PathVariable Long messageId) {
-        log.info("PUT /api/chats/{}/messages/{}/seen", chatId, messageId);
-        
-        try {
-            messageService.markAsSeen(messageId);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Message marked as seen"));
-            
-        } catch (Exception e) {
-            log.error("Error marking message as seen: {}", messageId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to mark message as seen"));
-        }
-    }
-
-    /**
-     * Delete message
-     * 
-     * @param chatId Chat ID
-     * @param messageId Message ID
-     * @return ApiResponse
-     * @status 200 OK
-     */
-    @DeleteMapping("/{chatId}/messages/{messageId}")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<String>> deleteMessage(
-            @PathVariable Long chatId,
-            @PathVariable Long messageId) {
-        log.info("DELETE /api/chats/{}/messages/{}", chatId, messageId);
-        
-        try {
-            Long userId = 1L; // Placeholder - would extract from JWT
-            messageService.deleteMessage(messageId, userId);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "Message deleted successfully"));
-            
-        } catch (Exception e) {
-            log.error("Error deleting message: {}", messageId, e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to delete message: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Search messages in chat
-     * 
-     * @param chatId Chat ID
-     * @param keyword Search keyword
-     * @return List of matching messages
-     * @status 200 OK
-     */
-    @GetMapping("/{chatId}/search")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<List<Message>>> searchMessages(
-            @PathVariable Long chatId,
-            @RequestParam String keyword) {
-        log.info("GET /api/chats/{}/search?keyword={}", chatId, keyword);
-        
-        try {
-            List<Message> results = messageService.searchMessages(chatId, keyword);
-            return ResponseEntity.ok(ApiResponse.success(results, "Search results: " + results.size()));
-            
-        } catch (Exception e) {
-            log.error("Error searching messages", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Search failed: " + e.getMessage()));
+            log.error("Error getting chat between users", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     /**
      * Get chat statistics for user
      * 
-     * @return Chat statistics map
-     * @status 200 OK
+     * @param userId User ID
+     * @return Chat statistics
      */
-    @GetMapping("/stats")
-    @PreAuthorize("hasRole('DONOR') or hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getChatStatistics() {
-        log.info("GET /api/chats/stats");
+    @GetMapping("/statistics")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getChatStatistics(@RequestParam Long userId) {
+        log.debug("Getting chat statistics for user: {}", userId);
         
         try {
-            Long userId = 1L; // Placeholder - would extract from JWT
             Map<String, Object> stats = chatService.getChatStatistics(userId);
-            
-            return ResponseEntity.ok(ApiResponse.success(stats, "Chat statistics retrieved"));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", stats
+            ));
             
         } catch (Exception e) {
-            log.error("Error fetching statistics", e);
-            return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Failed to fetch statistics"));
+            log.error("Error getting statistics", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Start new chat between two users
+     * 
+     * Request Body:
+     * {
+     *   "userId1": 1,
+     *   "userId2": 2
+     * }
+     * 
+     * @param request Start chat request
+     * @return Created/existing chat
+     */
+    @PostMapping("/start")
+    public ResponseEntity<?> startChat(@RequestBody StartChatRequest request) {
+        log.info("Starting chat between users: {} and {}", request.getUserId1(), request.getUserId2());
+        
+        try {
+            Chat chat = chatService.startChat(request.getUserId1(), request.getUserId2());
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Chat started successfully",
+                "data", chat
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error starting chat", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Archive chat
+     * 
+     * @param id Chat ID
+     * @param userId User requesting archive
+     * @return Success response
+     */
+    @PutMapping("/{id}/archive")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> archiveChat(@PathVariable Long id,
+                                        @RequestParam Long userId) {
+        log.info("Archiving chat: {} by user: {}", id, userId);
+        
+        try {
+            chatService.archiveChat(id, userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Chat archived successfully",
+                "chatId", id
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error archiving chat", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Block chat
+     * 
+     * @param id Chat ID
+     * @param userId User requesting block
+     * @return Success response
+     */
+    @PutMapping("/{id}/block")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> blockChat(@PathVariable Long id,
+                                      @RequestParam Long userId) {
+        log.info("Blocking chat: {} by user: {}", id, userId);
+        
+        try {
+            chatService.blockChat(id, userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Chat blocked successfully",
+                "chatId", id
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error blocking chat", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Delete chat
+     * 
+     * @param id Chat ID
+     * @param userId User requesting deletion
+     * @return Success response
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> deleteChat(@PathVariable Long id,
+                                       @RequestParam Long userId) {
+        log.info("Deleting chat: {} by user: {}", id, userId);
+        
+        try {
+            chatService.deleteChat(id, userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Chat deleted successfully",
+                "chatId", id
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error deleting chat", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Check if two users can chat
+     * 
+     * Query Parameters:
+     * - user1: First user ID
+     * - user2: Second user ID
+     * 
+     * @param user1 First user ID
+     * @param user2 Second user ID
+     * @return Can chat status
+     */
+    @GetMapping("/can-chat")
+    public ResponseEntity<?> canUsersChat(@RequestParam Long user1,
+                                         @RequestParam Long user2) {
+        log.debug("Checking if users can chat: {} and {}", user1, user2);
+        
+        try {
+            boolean canChat = chatService.canUsersChat(user1, user2);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "canChat", canChat
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error checking if users can chat", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 
     // ==================== Helper Classes ====================
 
+    /**
+     * Start chat request DTO
+     */
     @lombok.Data
-    @lombok.AllArgsConstructor
-    public static class ApiResponse<T> {
-        private boolean success;
-        private T data;
-        private String message;
+    public static class StartChatRequest {
+        private Long userId1;
+        private Long userId2;
 
-        public static <T> ApiResponse<T> success(T data, String message) {
-            return new ApiResponse<>(true, data, message);
-        }
-
-        public static <T> ApiResponse<T> error(String message) {
-            return new ApiResponse<>(false, null, message);
-        }
+        public Long getUserId1() { return userId1; }
+        public Long getUserId2() { return userId2; }
+        public void setUserId1(Long userId1) { this.userId1 = userId1; }
+        public void setUserId2(Long userId2) { this.userId2 = userId2; }
     }
 }
