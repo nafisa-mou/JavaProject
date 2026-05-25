@@ -306,6 +306,3 @@ public class AuthController {
         public long getTimestamp() { return timestamp; }
     }
 }
-
-// Need to import Map
-import java.util.Map;
