@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # MySQL 8.0 Database
+  mysql:
+    image: mysql:8.0
+    container_name: bloodlink-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: bloodlink_db
+      MYSQL_USER: bloodlink
+      MYSQL_PASSWORD: bloodlink_password
+      TZ: 'UTC'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/main/resources/db/V1_Initial_Schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./src/main/resources/db/V2_Sample_Data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
+    networks:
+      - bloodlink-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+
+  # PhpMyAdmin (Optional - for MySQL administration UI)
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bloodlink-phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+      PMA_PORT: 3306
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - bloodlink-network
+    profiles:
+      - dev-admin
+
+  # Spring Boot Application (Optional - for full stack)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bloodlink-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bloodlink_db?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: bloodlink
+      SPRING_DATASOURCE_PASSWORD: bloodlink_password
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQL8Dialect
+      APP_JWT_SECRET: ThisIsAVeryLongSecureSecretKeyForJWTTokenSigningWithAtLeast256BitsOfEntropyForMaximumSecurityChangeInProduction
+      APP_JWT_EXPIRATION: 86400000
+      JAVA_OPTS: -Xms256m -Xmx512m
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bloodlink-network
+    profiles:
+      - full-stack
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  bloodlink-network:
+    driver: bridge
