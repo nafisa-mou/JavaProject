@@ -4,6 +4,12 @@ import com.bloodlink.dto.UserDTO.DonorDTO;
 import com.bloodlink.entity.Donor;
 import com.bloodlink.entity.DonationHistory;
 import com.bloodlink.service.DonorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -37,6 +43,7 @@ import java.util.*;
 @RequestMapping("/api/donors")
 @RequiredArgsConstructor
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080", "http://localhost:4200"})
+@Tag(name = "Donor Management", description = "Donor profile, availability, and donation management endpoints")
 public class DonorController {
 
     private final DonorService donorService;
@@ -47,6 +54,11 @@ public class DonorController {
      * @return List of all donors
      */
     @GetMapping
+    @Operation(summary = "Get all donors", description = "Retrieves list of all active donors")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "List of donors retrieved successfully"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     public ResponseEntity<?> getAllDonors() {
         log.debug("Fetching all donors");
         
@@ -72,7 +84,14 @@ public class DonorController {
      * @return Donor details
      */
     @GetMapping("/{id}")
-    public ResponseEntity<?> getDonorById(@PathVariable Long id) {
+    @Operation(summary = "Get donor by ID", description = "Retrieves specific donor profile information")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Donor found"),
+        @ApiResponse(responseCode = "404", description = "Donor not found"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<?> getDonorById(
+        @Parameter(description = "Donor ID") @PathVariable Long id) {
         log.debug("Fetching donor: {}", id);
         
         try {

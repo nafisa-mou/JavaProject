@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to BloodLink</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 20px;
+            color: #333333;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #666666;
+        }
+        .features {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .feature {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature:before {
+            content: "✓ ";
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #dc2626;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #999999;
+        }
+        .footer a {
+            color: #dc2626;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🩸 Welcome to BloodLink</h1>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                Hi <span th:text="${firstName}">User</span>,
+            </div>
+
+            <div class="message">
+                <p>Thank you for joining BloodLink as a blood donor! Your willingness to help save lives is truly appreciated.</p>
+                <p>By becoming part of our community, you're making a direct impact on people who desperately need blood donations.</p>
+            </div>
+
+            <div class="features">
+                <div class="feature">Respond to urgent blood requests in your area</div>
+                <div class="feature">Track your donation history and achievements</div>
+                <div class="feature">Connect with patients and healthcare facilities</div>
+                <div class="feature">Earn reliability badges and ratings</div>
+                <div class="feature">Get notifications for blood requests matching your type</div>
+            </div>
+
+            <div class="message">
+                <p>Your account is now active. You can start helping immediately by:</p>
+                <ol style="color: #666666; line-height: 1.8;">
+                    <li>Completing your donor profile with health information</li>
+                    <li>Setting your availability status</li>
+                    <li>Enabling location sharing for better matches</li>
+                </ol>
+            </div>
+
+            <p style="text-align: center;">
+                <a href="[[${baseUrl}]]/donor/dashboard" class="cta-button">Complete Your Profile</a>
+            </p>
+
+            <div class="message" style="background-color: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; border-radius: 4px; color: #166534;">
+                <p style="margin: 0;"><strong>💡 Did you know?</strong> One blood donation can save up to 3 lives!</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© <span th:text="${year}">2024</span> BloodLink. All rights reserved.</p>
+            <p>
+                <a href="[[${baseUrl}]]/help">Help Center</a> | 
+                <a href="[[${baseUrl}]]/privacy">Privacy Policy</a> | 
+                <a href="[[${baseUrl}]]/contact">Contact Us</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
