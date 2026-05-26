@@ -14,6 +14,7 @@ C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\D
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\DonorRepository.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\DonorDTO.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\Donor.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\ChangePasswordRequest.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\BloodRequest.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\NotificationRepository.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\config\WebSocketConfig.java
@@ -31,9 +32,12 @@ C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\config\M
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\UserRepository.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\websocket\ChatWebSocketController.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\DonorReviewRepository.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\ResetPasswordRequest.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\Patient.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exception\ResourceNotFoundException.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\controller\ChatController.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\controller\AdminController.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exception\UnauthorizedException.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\WebSocketMessage.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\MessagingException.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\UserDTO.java
@@ -48,6 +52,9 @@ C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exceptio
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\service\DonorService.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\service\PatientService.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\controller\AuthController.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exception\InvalidOperationException.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exception\DuplicateResourceException.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\exception\ValidationException.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\config\JwtAuthenticationEntryPoint.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\controller\BloodRequestController.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\Notification.java
@@ -59,6 +66,8 @@ C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\config\S
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\MedicalRecordRepository.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\ChatRepository.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\repository\DonationHistoryRepository.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\ForgotPasswordRequest.java
+C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\PatientDTO.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\entity\DonationHistory.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\websocket\WebSocketEventListener.java
 C:\Users\Acer\Desktop\JavaProject\BloodLink\src\main\java\com\bloodlink\dto\LoginRequest.java
